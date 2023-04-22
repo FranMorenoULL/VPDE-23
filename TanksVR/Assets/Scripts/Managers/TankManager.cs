@@ -54,6 +54,12 @@ public class TankManager
         m_Movement.enabled = false;
         m_Shooting.enabled = false;
 
+        if (m_PlayerNumber == 1)
+        {
+            m_Movement.m_TankControls.Disable();
+            m_Shooting.m_TankControls.Disable();
+        }
+
         m_CanvasGameObject.SetActive(false);
     }
 
@@ -63,6 +69,12 @@ public class TankManager
     {
         m_Movement.enabled = true;
         m_Shooting.enabled = true;
+
+        if (m_PlayerNumber == 1)
+        {
+            m_Movement.m_TankControls.Enable();
+            m_Shooting.m_TankControls.Enable();
+        }
 
         m_CanvasGameObject.SetActive(true);
     }
@@ -76,5 +88,10 @@ public class TankManager
 
         m_Instance.SetActive(false);
         m_Instance.SetActive(true);
+    }
+
+    public void SetAttachedCamera(GameObject AttachedCamera)
+    {
+        m_Movement.m_AttachedCamera = AttachedCamera;
     }
 }

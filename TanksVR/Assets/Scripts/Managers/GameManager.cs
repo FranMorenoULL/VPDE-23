@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -13,16 +14,17 @@ public class GameManager : MonoBehaviour
     public GameObject m_TankPrefab;             // Reference to the prefab the players will control.
     public TankManager[] m_Tanks;               // A collection of managers for enabling and disabling different aspects of the tanks.
 
-
     private int m_RoundNumber;                  // Which round the game is currently on.
     private WaitForSeconds m_StartWait;         // Used to have a delay whilst the round starts.
     private WaitForSeconds m_EndWait;           // Used to have a delay whilst the round or game ends.
     private TankManager m_RoundWinner;          // Reference to the winner of the current round.  Used to make an announcement of who won.
     private TankManager m_GameWinner;           // Reference to the winner of the game.  Used to make an announcement of who won.
 
-
     const float k_MaxDepenetrationVelocity = float.PositiveInfinity;
-
+    
+    /* VR Support */
+    public GameObject m_AttachedCamera;         // Camera attached to the first player's tank 
+    
     private void Start()
     {
         // This line fixes a change to the physics engine.
@@ -50,24 +52,14 @@ public class GameManager : MonoBehaviour
                 Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
             m_Tanks[i].m_PlayerNumber = i + 1;
             m_Tanks[i].Setup();
+            
+            /* VR Support */
+            if (i == 0 && m_AttachedCamera)
+            {
+                m_AttachedCamera.transform.parent = m_Tanks[i].m_Instance.transform;
+                m_Tanks[i].SetAttachedCamera(m_AttachedCamera);
+            }
         }
-    }
-
-
-    private void SetCameraTargets()
-    {
-        // Create a collection of transforms the same size as the number of tanks.
-        Transform[] targets = new Transform[m_Tanks.Length];
-
-        // For each of these transforms...
-        for (int i = 0; i < targets.Length; i++)
-        {
-            // ... set it to the appropriate tank transform.
-            targets[i] = m_Tanks[i].m_Instance.transform;
-        }
-
-        // These are the targets the camera should follow.
-        // m_CameraControl.m_Targets = targets;
     }
 
 

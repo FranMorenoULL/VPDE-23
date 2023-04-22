@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
+using UnityEngine.InputSystem;
 
-public class TankMovement : MonoBehaviour
+public class TankMovement : MonoBehaviour, IAM_Tank.IMovementActions
 {
     
     public int m_PlayerNumber = 1;              // Used to identify which tank belongs to which player.  This is set by this tank's manager.
@@ -11,19 +12,41 @@ public class TankMovement : MonoBehaviour
     public AudioClip m_EngineDriving;           // Audio to play when the tank is moving.
 	public float m_PitchRange = 0.2f;           // The amount by which the pitch of the engine noises can vary.
 
-    private string m_MovementAxisName;          // The name of the input axis for moving forward and back.
-    private string m_TurnAxisName;              // The name of the input axis for turning.
     private Rigidbody m_Rigidbody;              // Reference used to move the tank.
     private float m_MovementInputValue;         // The current value of the movement input.
-    private float m_TurnInputValue;             // The current value of the turn input.
+    private float m_TurnCannonInputValue;       // The current value of the turn cannon input.
+    private Vector2 m_TurnLookInputValue;         // The current value of the turn look input.
     private float m_OriginalPitch;              // The pitch of the audio source at the start of the scene.
     private ParticleSystem[] m_particleSystems; // References to all the particles systems used by the Tanks
+
+    
+    /* VR Support */
+    public IAM_Tank m_TankControls;
+    public GameObject m_AttachedCamera;
+
+    public void OnThrottle(InputAction.CallbackContext context)
+    {
+        m_MovementInputValue = context.ReadValue<float>();
+    }
+
+    public void OnTurnCannon(InputAction.CallbackContext context)
+    {
+        m_TurnCannonInputValue = context.ReadValue<Vector2>().x;
+    }
+
+    public void OnTurnLook(InputAction.CallbackContext context)
+    {
+        m_TurnLookInputValue = context.ReadValue<Vector2>();
+    }
+
 
     private void Awake ()
     {
         m_Rigidbody = GetComponent<Rigidbody>();
+        
+        m_TankControls = new IAM_Tank();
+        m_TankControls.Movement.SetCallbacks(this);
     }
-
 
     private void OnEnable ()
     {
@@ -32,7 +55,8 @@ public class TankMovement : MonoBehaviour
 
         // Also reset the input values.
         m_MovementInputValue = 0f;
-        m_TurnInputValue = 0f;
+        m_TurnCannonInputValue = 0f;
+        m_TurnLookInputValue = Vector2.zero;
 
         // We grab all the Particle systems child of that Tank to be able to Stop/Play them on Deactivate/Activate
         // It is needed because we move the Tank when spawning it, and if the Particle System is playing while we do that
@@ -60,10 +84,6 @@ public class TankMovement : MonoBehaviour
 
     private void Start()
     {
-        // The axes names are based on player number.
-        m_MovementAxisName = "Vertical" + m_PlayerNumber;
-        m_TurnAxisName = "Horizontal" + m_PlayerNumber;
-
         // Store the original pitch of the audio source.
         m_OriginalPitch = m_MovementAudio.pitch;
     }
@@ -73,8 +93,8 @@ public class TankMovement : MonoBehaviour
     {
         // Store the player's input and make sure the audio for the engine is playing.
         // Store the value of both input axes.
-        m_MovementInputValue = Input.GetAxis (m_MovementAxisName);
-        m_TurnInputValue = Input.GetAxis (m_TurnAxisName);
+        // m_MovementInputValue = Input.GetAxis (m_MovementAxisName);
+        // m_TurnInputValue = Input.GetAxis (m_TurnAxisName);
 
         EngineAudio ();
     }
@@ -84,7 +104,7 @@ public class TankMovement : MonoBehaviour
     {
         // Play the correct audio clip based on whether or not the tank is moving and what audio is currently playing.
         // If there is no input (the tank is stationary)...
-        if (Mathf.Abs (m_MovementInputValue) < 0.1f && Mathf.Abs (m_TurnInputValue) < 0.1f)
+        if (Mathf.Abs (m_MovementInputValue) < 0.1f && Mathf.Abs (m_TurnCannonInputValue) < 0.1f)
         {
             // ... and if the audio source is currently playing the driving clip...
             if (m_MovementAudio.clip == m_EngineDriving)
@@ -114,7 +134,8 @@ public class TankMovement : MonoBehaviour
         // Move and turn the tank.
         // Adjust the rigidbodies position and orientation in FixedUpdate.
         Move ();
-        Turn ();
+        TurnCannon ();
+        TurnLook ();
     }
 
 
@@ -129,17 +150,40 @@ public class TankMovement : MonoBehaviour
     }
 
 
-    private void Turn()
+    private void TurnCannon()
     {
         // Adjust the rotation of the tank based on the player's input.
         // Determine the number of degrees to be turned based on the input, speed and time between frames.
 
-        float turn = m_TurnInputValue * m_TurnSpeed * Time.deltaTime;
+        float turn = m_TurnCannonInputValue * m_TurnSpeed * Time.deltaTime;
 
         // Make this into a rotation in the y axis.
         Quaternion turnRotation = Quaternion.Euler (0f, turn, 0f);
 
         // Apply this rotation to the rigidbody's rotation.
         m_Rigidbody.MoveRotation (m_Rigidbody.rotation * turnRotation);
+    }
+
+    private void TurnLook()
+    {
+        if (!m_AttachedCamera)
+        {
+            return;
+        }
+        
+        // Apply clamped pitch to the camera's rotation 
+        Vector3 eulerAngles = m_AttachedCamera.transform.localEulerAngles;
+        if (eulerAngles.x > 180f)
+        {
+            eulerAngles.x -= 360f;
+        }
+
+        // Adjust the rotation of the attached camera based on the player's input.
+        // Determine the number of degrees to be turned based on the input, speed and time between frames.
+        float yaw = eulerAngles.y + m_TurnLookInputValue.x * m_TurnSpeed * Time.deltaTime;
+        float pitch = Mathf.Clamp(eulerAngles.x + m_TurnLookInputValue.y * m_TurnSpeed * Time.deltaTime, -40f, 10f);
+
+        // Apply clamped pitch and yaw to the camera's rotation 
+        m_AttachedCamera.transform.localEulerAngles = new Vector3(pitch, yaw, 0f);
     }
 }
